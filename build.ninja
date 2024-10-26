@@ -1,0 +1,29 @@
+
+# compiler flags
+cflags = -D __DEBUG__ -O0 -g -Wno-deprecated-declarations -Werror -I src/nanovg -I src/nanovg_demo -I src/sokol
+cflags_ext = -D SOKOL_METAL -ObjC
+
+# linker flags
+lflags = -L build -framework CoreFoundation -framework OpenGL -framework Metal -framework MetalKit -framework Cocoa -framework QuartzCore -l c++
+lflags_ext = 
+
+# regular compile
+rule clang
+  deps = gcc
+  depfile = $out.d
+  command = clang -MD -MF $out.d $cflags $cflags_ext -c $in -o $out
+
+# regular linker
+rule clang_link
+  command = clang $lflags $lflags_ext $in -o $out
+
+build build/sokol/sokol_impl.o: clang src/sokol/sokol_impl.cpp
+build build/demo.o: clang src/nanovg_demo/demo.c
+build build/nanovg/nanovg.o: clang src/nanovg/nanovg.c
+build build/main.o: clang src/main.c
+
+build build/main: clang_link $
+  build/sokol/sokol_impl.o $
+  build/nanovg/nanovg.o $
+  build/demo.o $
+  build/main.o
