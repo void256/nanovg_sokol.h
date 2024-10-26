@@ -33,6 +33,11 @@ The only file you actually need is [nanovg_sokol.h](src/nanovg_sokol/nanovg_soko
 #include "nanovg_sokol.h"
 
 // in your init_cb call somewhere
+sg_desc ctx = (sg_desc) {
+    ...
+    .pipeline_pool_size = 512, // <-------- add this line or you'll get errors
+};
+...
 NVGcontext* vg = nvgCreateSokol(NVG_ANTIALIAS | NVG_STENCIL_STROKES);
 if (vg == NULL) {
     printf("Could not init NanoVG.\n");
