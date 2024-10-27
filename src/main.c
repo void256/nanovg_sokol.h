@@ -52,14 +52,7 @@ void sokol_init(void) {
 }
 
 void sokol_frame(void) {
-    int winWidth = sapp_width();
-    int winHeight = sapp_height();
-    int fbWidth = sapp_width();
-    int fbHeight = sapp_height();
-    float pxRatio = (float)fbWidth / (float)winWidth;
     float t = stm_sec(stm_now());
-
-    // Calculate pixel ration for hi-dpi devices.
 
     if (premult) {
         pass_action.colors[0].clear_value = (sg_color) { 0.0f, 0.0f, 0.0f, 0.0f };
@@ -68,14 +61,11 @@ void sokol_frame(void) {
     }
     sg_begin_pass(&(sg_pass){ .action = pass_action, .swapchain = sglue_swapchain() });
 
-    nvgBeginFrame(vg, winWidth, winHeight, pxRatio);
-    renderDemo(vg, mouseX, mouseY, winWidth, winHeight, t, blowup, &data);
+    int w = sapp_width();
+    int h = sapp_height();
+    nvgBeginFrame(vg, w, h, sapp_dpi_scale());
+    renderDemo(vg, mouseX, mouseY, w, h, t, blowup, &data);
     nvgEndFrame(vg);
-
-    if (screenshot) {
-        screenshot = 0;
-        saveScreenShot(fbWidth, fbHeight, premult, "dump.png");
-    }
 
     sg_end_pass();
     sg_commit();
@@ -100,9 +90,6 @@ void sokol_event(const sapp_event* event) {
     }
     if (event->key_code == SAPP_KEYCODE_SPACE) {
         blowup = !blowup;
-    }
-    if (event->key_code == SAPP_KEYCODE_S) {
-        screenshot = 1;
     }
     if (event->key_code == SAPP_KEYCODE_P) {
         premult = !premult;
