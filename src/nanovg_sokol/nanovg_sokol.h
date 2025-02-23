@@ -20,6 +20,10 @@
 // - don't call sg_update_image() when creating texture in sgnvg__renderCreateTexture()
 // - renamed debug trace logging macros and added "SGNVG_" prefix there as well
 //
+// @void256 23.02.2025
+// - update sokol (sokol_app.h, sokol_gfx.h, sokol_log.h, sokol_time.h) to
+//   the version of Feb 11, 2025 (https://github.com/floooh/sokol/commit/b0aa42fa061759908a6c68029703e0988a854b53)
+//
 
 #ifndef NANOVG_SOKOL_H
 #define NANOVG_SOKOL_H
@@ -71,19 +75,39 @@ enum NVGimageFlagsGL {
 #include <assert.h>
 
 /*
-    Embedded source code compiled with: 
+    Embedded shader source code follows below.
+
+    Notes:
+
+    There are two main shader files included below:
+    - shd.glsl
+    - shd.aa.glsl
+
+    as well as the following two support files that are included by the main files:
+    - internal_shd.fs.glsl
+    - internal_shd.vs.glsl
+
+    To extract all four shader source code files back use the following awk command:
+
+    awk '/^8< / {out_file=$2; print "// " out_file > out_file; next} /^>8/ {out_file=""; next} {if (out_file) print $0 >> out_file}' nanovg_sokol.h
+
+    You can then use the sokol shader compiler to compile the shader code into
+    a include (.h) file using the following commands;
 
     sokol-shdc --input shd.glsl --output shd.glsl.h --slang glsl410:glsl300es:hlsl4:metal_macos:metal_ios:metal_sim:wgsl --ifdef
     sokol-shdc --input shd.aa.glsl --output shd.aa.glsl.h --defines=EDGE_AA --slang glsl410:glsl300es:hlsl4:metal_macos:metal_ios:metal_sim:wgsl --ifdef
 
-    shd.glsl and shd.aa.glsl both @include the internal_shd.fs.glsl and internal_shd.vs.glsl
+    The sokol-shdc tool from this commit was used to compile it:
+    https://github.com/floooh/sokol-tools-bin/commit/339ff0314f19414c248cd540b7c72de1873f3a4b
 
-    All four files are included below for convenience.
-    
-    To extract the shader source code and get back the 4 files use the following
-    awk command:
+    After you compiled the shader source code to the include files you can
+    either replace the files below or use the following awk to do this
+    automatically:
 
-    awk '/^8< / {out_file=$2; print "// " out_file > out_file; next} /^>8/ {out_file=""; next} {if (out_file) print $0 >> out_file}' nanovg_sokol.h
+    awk '/\/\/ -- START --/ {print $0; getline; file=substr($3, 2, length($3)-2); print $0; next} /\/\/ -- END --/ {print $0; file=""; next} {if (!file) { print $0 } else { while((getline line < file) > 0) { print line } }}' nanovg_sokol.h > nanovg_sokol.h.new
+
+    This will create a file "nanovg_sokol.h.new" which should be the new
+    nanovg_sokol.h.
 
 8< internal_shd.fs.glsl
 
@@ -286,10 +310,9 @@ void main(void) {
 */
 
 
-////////////////////////////////////////////////////////////////////////////////
+// -- START --
 // #include "shd.glsl.h"
-////////////////////////////////////////////////////////////////////////////////
-
+#pragma once
 /*
     #version:1# (machine generated, don't edit!)
 
@@ -302,28 +325,26 @@ void main(void) {
     =========
     Shader program: 'sg':
         Get shader desc: nanovg_sg_shader_desc(sg_query_backend());
-        Vertex shader: vs
-            Attributes:
-                ATTR_nanovg_vs_vertex => 0
-                ATTR_nanovg_vs_tcoord => 1
-            Uniform block 'viewSize':
-                C struct: nanovg_viewSize_t
-                Bind slot: SLOT_nanovg_viewSize => 0
-        Fragment shader: fs
-            Uniform block 'frag':
-                C struct: nanovg_frag_t
-                Bind slot: SLOT_nanovg_frag => 0
-            Image 'tex':
-                Image type: SG_IMAGETYPE_2D
-                Sample type: SG_IMAGESAMPLETYPE_FLOAT
-                Multisampled: false
-                Bind slot: SLOT_nanovg_tex => 0
-            Sampler 'smp':
-                Type: SG_SAMPLERTYPE_FILTERING
-                Bind slot: SLOT_nanovg_smp => 0
-            Image Sampler Pair 'tex_smp':
-                Image: tex
-                Sampler: smp
+        Vertex Shader: vs
+        Fragment Shader: fs
+        Attributes:
+            ATTR_nanovg_sg_vertex => 0
+            ATTR_nanovg_sg_tcoord => 1
+    Bindings:
+        Uniform block 'viewSize':
+            C struct: nanovg_viewSize_t
+            Bind slot: UB_nanovg_viewSize => 0
+        Uniform block 'frag':
+            C struct: nanovg_frag_t
+            Bind slot: UB_nanovg_frag => 1
+        Image 'tex':
+            Image type: SG_IMAGETYPE_2D
+            Sample type: SG_IMAGESAMPLETYPE_FLOAT
+            Multisampled: false
+            Bind slot: IMG_nanovg_tex => 2
+        Sampler 'smp':
+            Type: SG_SAMPLERTYPE_FILTERING
+            Bind slot: SMP_nanovg_smp => 3
 */
 #if !defined(SOKOL_GFX_INCLUDED)
 #error "Please include sokol_gfx.h before shd.glsl.h"
@@ -335,12 +356,12 @@ void main(void) {
 #define SOKOL_SHDC_ALIGN(a) __attribute__((aligned(a)))
 #endif
 #endif
-#define ATTR_nanovg_vs_vertex (0)
-#define ATTR_nanovg_vs_tcoord (1)
-#define SLOT_nanovg_viewSize (0)
-#define SLOT_nanovg_frag (0)
-#define SLOT_nanovg_tex (0)
-#define SLOT_nanovg_smp (0)
+#define ATTR_nanovg_sg_vertex (0)
+#define ATTR_nanovg_sg_tcoord (1)
+#define UB_nanovg_viewSize (0)
+#define UB_nanovg_frag (1)
+#define IMG_nanovg_tex (2)
+#define SMP_nanovg_smp (3)
 #pragma pack(push,1)
 SOKOL_SHDC_ALIGN(16) typedef struct nanovg_viewSize_t {
     float _viewSize[4];
@@ -2850,13 +2871,13 @@ static const uint8_t nanovg_vs_source_wgsl[1122] = {
       dummy : Arr,
     }
 
-    @group(0) @binding(4) var<uniform> x_56 : frag;
+    @group(0) @binding(8) var<uniform> x_56 : frag;
 
     var<private> fpos : vec2f;
 
-    @group(1) @binding(48) var tex : texture_2d<f32>;
+    @group(1) @binding(64) var tex : texture_2d<f32>;
 
-    @group(1) @binding(64) var smp : sampler;
+    @group(1) @binding(80) var smp : sampler;
 
     var<private> ftcoord : vec2f;
 
@@ -3064,16 +3085,16 @@ static const uint8_t nanovg_fs_source_wgsl[7003] = {
     0x66,0x72,0x61,0x67,0x20,0x7b,0x0a,0x20,0x20,0x2f,0x2a,0x20,0x40,0x6f,0x66,0x66,
     0x73,0x65,0x74,0x28,0x30,0x29,0x20,0x2a,0x2f,0x0a,0x20,0x20,0x64,0x75,0x6d,0x6d,
     0x79,0x20,0x3a,0x20,0x41,0x72,0x72,0x2c,0x0a,0x7d,0x0a,0x0a,0x40,0x67,0x72,0x6f,
-    0x75,0x70,0x28,0x30,0x29,0x20,0x40,0x62,0x69,0x6e,0x64,0x69,0x6e,0x67,0x28,0x34,
+    0x75,0x70,0x28,0x30,0x29,0x20,0x40,0x62,0x69,0x6e,0x64,0x69,0x6e,0x67,0x28,0x38,
     0x29,0x20,0x76,0x61,0x72,0x3c,0x75,0x6e,0x69,0x66,0x6f,0x72,0x6d,0x3e,0x20,0x78,
     0x5f,0x35,0x36,0x20,0x3a,0x20,0x66,0x72,0x61,0x67,0x3b,0x0a,0x0a,0x76,0x61,0x72,
     0x3c,0x70,0x72,0x69,0x76,0x61,0x74,0x65,0x3e,0x20,0x66,0x70,0x6f,0x73,0x20,0x3a,
     0x20,0x76,0x65,0x63,0x32,0x66,0x3b,0x0a,0x0a,0x40,0x67,0x72,0x6f,0x75,0x70,0x28,
-    0x31,0x29,0x20,0x40,0x62,0x69,0x6e,0x64,0x69,0x6e,0x67,0x28,0x34,0x38,0x29,0x20,
+    0x31,0x29,0x20,0x40,0x62,0x69,0x6e,0x64,0x69,0x6e,0x67,0x28,0x36,0x34,0x29,0x20,
     0x76,0x61,0x72,0x20,0x74,0x65,0x78,0x20,0x3a,0x20,0x74,0x65,0x78,0x74,0x75,0x72,
     0x65,0x5f,0x32,0x64,0x3c,0x66,0x33,0x32,0x3e,0x3b,0x0a,0x0a,0x40,0x67,0x72,0x6f,
-    0x75,0x70,0x28,0x31,0x29,0x20,0x40,0x62,0x69,0x6e,0x64,0x69,0x6e,0x67,0x28,0x36,
-    0x34,0x29,0x20,0x76,0x61,0x72,0x20,0x73,0x6d,0x70,0x20,0x3a,0x20,0x73,0x61,0x6d,
+    0x75,0x70,0x28,0x31,0x29,0x20,0x40,0x62,0x69,0x6e,0x64,0x69,0x6e,0x67,0x28,0x38,
+    0x30,0x29,0x20,0x76,0x61,0x72,0x20,0x73,0x6d,0x70,0x20,0x3a,0x20,0x73,0x61,0x6d,
     0x70,0x6c,0x65,0x72,0x3b,0x0a,0x0a,0x76,0x61,0x72,0x3c,0x70,0x72,0x69,0x76,0x61,
     0x74,0x65,0x3e,0x20,0x66,0x74,0x63,0x6f,0x6f,0x72,0x64,0x20,0x3a,0x20,0x76,0x65,
     0x63,0x32,0x66,0x3b,0x0a,0x0a,0x76,0x61,0x72,0x3c,0x70,0x72,0x69,0x76,0x61,0x74,
@@ -3503,32 +3524,34 @@ static inline const sg_shader_desc* nanovg_sg_shader_desc(sg_backend backend) {
         static bool valid;
         if (!valid) {
             valid = true;
-            desc.attrs[0].name = "vertex";
-            desc.attrs[1].name = "tcoord";
-            desc.vs.source = (const char*)nanovg_vs_source_glsl410;
-            desc.vs.entry = "main";
-            desc.vs.uniform_blocks[0].size = 16;
-            desc.vs.uniform_blocks[0].layout = SG_UNIFORMLAYOUT_STD140;
-            desc.vs.uniform_blocks[0].uniforms[0].name = "viewSize";
-            desc.vs.uniform_blocks[0].uniforms[0].type = SG_UNIFORMTYPE_FLOAT4;
-            desc.vs.uniform_blocks[0].uniforms[0].array_count = 1;
-            desc.fs.source = (const char*)nanovg_fs_source_glsl410;
-            desc.fs.entry = "main";
-            desc.fs.uniform_blocks[0].size = 176;
-            desc.fs.uniform_blocks[0].layout = SG_UNIFORMLAYOUT_STD140;
-            desc.fs.uniform_blocks[0].uniforms[0].name = "frag";
-            desc.fs.uniform_blocks[0].uniforms[0].type = SG_UNIFORMTYPE_FLOAT4;
-            desc.fs.uniform_blocks[0].uniforms[0].array_count = 11;
-            desc.fs.images[0].used = true;
-            desc.fs.images[0].multisampled = false;
-            desc.fs.images[0].image_type = SG_IMAGETYPE_2D;
-            desc.fs.images[0].sample_type = SG_IMAGESAMPLETYPE_FLOAT;
-            desc.fs.samplers[0].used = true;
-            desc.fs.samplers[0].sampler_type = SG_SAMPLERTYPE_FILTERING;
-            desc.fs.image_sampler_pairs[0].used = true;
-            desc.fs.image_sampler_pairs[0].image_slot = 0;
-            desc.fs.image_sampler_pairs[0].sampler_slot = 0;
-            desc.fs.image_sampler_pairs[0].glsl_name = "tex_smp";
+            desc.vertex_func.source = (const char*)nanovg_vs_source_glsl410;
+            desc.vertex_func.entry = "main";
+            desc.fragment_func.source = (const char*)nanovg_fs_source_glsl410;
+            desc.fragment_func.entry = "main";
+            desc.attrs[0].glsl_name = "vertex";
+            desc.attrs[1].glsl_name = "tcoord";
+            desc.uniform_blocks[0].stage = SG_SHADERSTAGE_VERTEX;
+            desc.uniform_blocks[0].layout = SG_UNIFORMLAYOUT_STD140;
+            desc.uniform_blocks[0].size = 16;
+            desc.uniform_blocks[0].glsl_uniforms[0].type = SG_UNIFORMTYPE_FLOAT4;
+            desc.uniform_blocks[0].glsl_uniforms[0].array_count = 1;
+            desc.uniform_blocks[0].glsl_uniforms[0].glsl_name = "viewSize";
+            desc.uniform_blocks[1].stage = SG_SHADERSTAGE_FRAGMENT;
+            desc.uniform_blocks[1].layout = SG_UNIFORMLAYOUT_STD140;
+            desc.uniform_blocks[1].size = 176;
+            desc.uniform_blocks[1].glsl_uniforms[0].type = SG_UNIFORMTYPE_FLOAT4;
+            desc.uniform_blocks[1].glsl_uniforms[0].array_count = 11;
+            desc.uniform_blocks[1].glsl_uniforms[0].glsl_name = "frag";
+            desc.images[2].stage = SG_SHADERSTAGE_FRAGMENT;
+            desc.images[2].image_type = SG_IMAGETYPE_2D;
+            desc.images[2].sample_type = SG_IMAGESAMPLETYPE_FLOAT;
+            desc.images[2].multisampled = false;
+            desc.samplers[3].stage = SG_SHADERSTAGE_FRAGMENT;
+            desc.samplers[3].sampler_type = SG_SAMPLERTYPE_FILTERING;
+            desc.image_sampler_pairs[0].stage = SG_SHADERSTAGE_FRAGMENT;
+            desc.image_sampler_pairs[0].image_slot = 2;
+            desc.image_sampler_pairs[0].sampler_slot = 3;
+            desc.image_sampler_pairs[0].glsl_name = "tex_smp";
             desc.label = "nanovg_sg_shader";
         }
         return &desc;
@@ -3540,32 +3563,34 @@ static inline const sg_shader_desc* nanovg_sg_shader_desc(sg_backend backend) {
         static bool valid;
         if (!valid) {
             valid = true;
-            desc.attrs[0].name = "vertex";
-            desc.attrs[1].name = "tcoord";
-            desc.vs.source = (const char*)nanovg_vs_source_glsl300es;
-            desc.vs.entry = "main";
-            desc.vs.uniform_blocks[0].size = 16;
-            desc.vs.uniform_blocks[0].layout = SG_UNIFORMLAYOUT_STD140;
-            desc.vs.uniform_blocks[0].uniforms[0].name = "viewSize";
-            desc.vs.uniform_blocks[0].uniforms[0].type = SG_UNIFORMTYPE_FLOAT4;
-            desc.vs.uniform_blocks[0].uniforms[0].array_count = 1;
-            desc.fs.source = (const char*)nanovg_fs_source_glsl300es;
-            desc.fs.entry = "main";
-            desc.fs.uniform_blocks[0].size = 176;
-            desc.fs.uniform_blocks[0].layout = SG_UNIFORMLAYOUT_STD140;
-            desc.fs.uniform_blocks[0].uniforms[0].name = "frag";
-            desc.fs.uniform_blocks[0].uniforms[0].type = SG_UNIFORMTYPE_FLOAT4;
-            desc.fs.uniform_blocks[0].uniforms[0].array_count = 11;
-            desc.fs.images[0].used = true;
-            desc.fs.images[0].multisampled = false;
-            desc.fs.images[0].image_type = SG_IMAGETYPE_2D;
-            desc.fs.images[0].sample_type = SG_IMAGESAMPLETYPE_FLOAT;
-            desc.fs.samplers[0].used = true;
-            desc.fs.samplers[0].sampler_type = SG_SAMPLERTYPE_FILTERING;
-            desc.fs.image_sampler_pairs[0].used = true;
-            desc.fs.image_sampler_pairs[0].image_slot = 0;
-            desc.fs.image_sampler_pairs[0].sampler_slot = 0;
-            desc.fs.image_sampler_pairs[0].glsl_name = "tex_smp";
+            desc.vertex_func.source = (const char*)nanovg_vs_source_glsl300es;
+            desc.vertex_func.entry = "main";
+            desc.fragment_func.source = (const char*)nanovg_fs_source_glsl300es;
+            desc.fragment_func.entry = "main";
+            desc.attrs[0].glsl_name = "vertex";
+            desc.attrs[1].glsl_name = "tcoord";
+            desc.uniform_blocks[0].stage = SG_SHADERSTAGE_VERTEX;
+            desc.uniform_blocks[0].layout = SG_UNIFORMLAYOUT_STD140;
+            desc.uniform_blocks[0].size = 16;
+            desc.uniform_blocks[0].glsl_uniforms[0].type = SG_UNIFORMTYPE_FLOAT4;
+            desc.uniform_blocks[0].glsl_uniforms[0].array_count = 1;
+            desc.uniform_blocks[0].glsl_uniforms[0].glsl_name = "viewSize";
+            desc.uniform_blocks[1].stage = SG_SHADERSTAGE_FRAGMENT;
+            desc.uniform_blocks[1].layout = SG_UNIFORMLAYOUT_STD140;
+            desc.uniform_blocks[1].size = 176;
+            desc.uniform_blocks[1].glsl_uniforms[0].type = SG_UNIFORMTYPE_FLOAT4;
+            desc.uniform_blocks[1].glsl_uniforms[0].array_count = 11;
+            desc.uniform_blocks[1].glsl_uniforms[0].glsl_name = "frag";
+            desc.images[2].stage = SG_SHADERSTAGE_FRAGMENT;
+            desc.images[2].image_type = SG_IMAGETYPE_2D;
+            desc.images[2].sample_type = SG_IMAGESAMPLETYPE_FLOAT;
+            desc.images[2].multisampled = false;
+            desc.samplers[3].stage = SG_SHADERSTAGE_FRAGMENT;
+            desc.samplers[3].sampler_type = SG_SAMPLERTYPE_FILTERING;
+            desc.image_sampler_pairs[0].stage = SG_SHADERSTAGE_FRAGMENT;
+            desc.image_sampler_pairs[0].image_slot = 2;
+            desc.image_sampler_pairs[0].sampler_slot = 3;
+            desc.image_sampler_pairs[0].glsl_name = "tex_smp";
             desc.label = "nanovg_sg_shader";
         }
         return &desc;
@@ -3577,29 +3602,35 @@ static inline const sg_shader_desc* nanovg_sg_shader_desc(sg_backend backend) {
         static bool valid;
         if (!valid) {
             valid = true;
-            desc.attrs[0].sem_name = "TEXCOORD";
-            desc.attrs[0].sem_index = 0;
-            desc.attrs[1].sem_name = "TEXCOORD";
-            desc.attrs[1].sem_index = 1;
-            desc.vs.source = (const char*)nanovg_vs_source_hlsl4;
-            desc.vs.d3d11_target = "vs_4_0";
-            desc.vs.entry = "main";
-            desc.vs.uniform_blocks[0].size = 16;
-            desc.vs.uniform_blocks[0].layout = SG_UNIFORMLAYOUT_STD140;
-            desc.fs.source = (const char*)nanovg_fs_source_hlsl4;
-            desc.fs.d3d11_target = "ps_4_0";
-            desc.fs.entry = "main";
-            desc.fs.uniform_blocks[0].size = 176;
-            desc.fs.uniform_blocks[0].layout = SG_UNIFORMLAYOUT_STD140;
-            desc.fs.images[0].used = true;
-            desc.fs.images[0].multisampled = false;
-            desc.fs.images[0].image_type = SG_IMAGETYPE_2D;
-            desc.fs.images[0].sample_type = SG_IMAGESAMPLETYPE_FLOAT;
-            desc.fs.samplers[0].used = true;
-            desc.fs.samplers[0].sampler_type = SG_SAMPLERTYPE_FILTERING;
-            desc.fs.image_sampler_pairs[0].used = true;
-            desc.fs.image_sampler_pairs[0].image_slot = 0;
-            desc.fs.image_sampler_pairs[0].sampler_slot = 0;
+            desc.vertex_func.source = (const char*)nanovg_vs_source_hlsl4;
+            desc.vertex_func.d3d11_target = "vs_4_0";
+            desc.vertex_func.entry = "main";
+            desc.fragment_func.source = (const char*)nanovg_fs_source_hlsl4;
+            desc.fragment_func.d3d11_target = "ps_4_0";
+            desc.fragment_func.entry = "main";
+            desc.attrs[0].hlsl_sem_name = "TEXCOORD";
+            desc.attrs[0].hlsl_sem_index = 0;
+            desc.attrs[1].hlsl_sem_name = "TEXCOORD";
+            desc.attrs[1].hlsl_sem_index = 1;
+            desc.uniform_blocks[0].stage = SG_SHADERSTAGE_VERTEX;
+            desc.uniform_blocks[0].layout = SG_UNIFORMLAYOUT_STD140;
+            desc.uniform_blocks[0].size = 16;
+            desc.uniform_blocks[0].hlsl_register_b_n = 0;
+            desc.uniform_blocks[1].stage = SG_SHADERSTAGE_FRAGMENT;
+            desc.uniform_blocks[1].layout = SG_UNIFORMLAYOUT_STD140;
+            desc.uniform_blocks[1].size = 176;
+            desc.uniform_blocks[1].hlsl_register_b_n = 0;
+            desc.images[2].stage = SG_SHADERSTAGE_FRAGMENT;
+            desc.images[2].image_type = SG_IMAGETYPE_2D;
+            desc.images[2].sample_type = SG_IMAGESAMPLETYPE_FLOAT;
+            desc.images[2].multisampled = false;
+            desc.images[2].hlsl_register_t_n = 0;
+            desc.samplers[3].stage = SG_SHADERSTAGE_FRAGMENT;
+            desc.samplers[3].sampler_type = SG_SAMPLERTYPE_FILTERING;
+            desc.samplers[3].hlsl_register_s_n = 0;
+            desc.image_sampler_pairs[0].stage = SG_SHADERSTAGE_FRAGMENT;
+            desc.image_sampler_pairs[0].image_slot = 2;
+            desc.image_sampler_pairs[0].sampler_slot = 3;
             desc.label = "nanovg_sg_shader";
         }
         return &desc;
@@ -3611,23 +3642,29 @@ static inline const sg_shader_desc* nanovg_sg_shader_desc(sg_backend backend) {
         static bool valid;
         if (!valid) {
             valid = true;
-            desc.vs.source = (const char*)nanovg_vs_source_metal_macos;
-            desc.vs.entry = "main0";
-            desc.vs.uniform_blocks[0].size = 16;
-            desc.vs.uniform_blocks[0].layout = SG_UNIFORMLAYOUT_STD140;
-            desc.fs.source = (const char*)nanovg_fs_source_metal_macos;
-            desc.fs.entry = "main0";
-            desc.fs.uniform_blocks[0].size = 176;
-            desc.fs.uniform_blocks[0].layout = SG_UNIFORMLAYOUT_STD140;
-            desc.fs.images[0].used = true;
-            desc.fs.images[0].multisampled = false;
-            desc.fs.images[0].image_type = SG_IMAGETYPE_2D;
-            desc.fs.images[0].sample_type = SG_IMAGESAMPLETYPE_FLOAT;
-            desc.fs.samplers[0].used = true;
-            desc.fs.samplers[0].sampler_type = SG_SAMPLERTYPE_FILTERING;
-            desc.fs.image_sampler_pairs[0].used = true;
-            desc.fs.image_sampler_pairs[0].image_slot = 0;
-            desc.fs.image_sampler_pairs[0].sampler_slot = 0;
+            desc.vertex_func.source = (const char*)nanovg_vs_source_metal_macos;
+            desc.vertex_func.entry = "main0";
+            desc.fragment_func.source = (const char*)nanovg_fs_source_metal_macos;
+            desc.fragment_func.entry = "main0";
+            desc.uniform_blocks[0].stage = SG_SHADERSTAGE_VERTEX;
+            desc.uniform_blocks[0].layout = SG_UNIFORMLAYOUT_STD140;
+            desc.uniform_blocks[0].size = 16;
+            desc.uniform_blocks[0].msl_buffer_n = 0;
+            desc.uniform_blocks[1].stage = SG_SHADERSTAGE_FRAGMENT;
+            desc.uniform_blocks[1].layout = SG_UNIFORMLAYOUT_STD140;
+            desc.uniform_blocks[1].size = 176;
+            desc.uniform_blocks[1].msl_buffer_n = 0;
+            desc.images[2].stage = SG_SHADERSTAGE_FRAGMENT;
+            desc.images[2].image_type = SG_IMAGETYPE_2D;
+            desc.images[2].sample_type = SG_IMAGESAMPLETYPE_FLOAT;
+            desc.images[2].multisampled = false;
+            desc.images[2].msl_texture_n = 0;
+            desc.samplers[3].stage = SG_SHADERSTAGE_FRAGMENT;
+            desc.samplers[3].sampler_type = SG_SAMPLERTYPE_FILTERING;
+            desc.samplers[3].msl_sampler_n = 0;
+            desc.image_sampler_pairs[0].stage = SG_SHADERSTAGE_FRAGMENT;
+            desc.image_sampler_pairs[0].image_slot = 2;
+            desc.image_sampler_pairs[0].sampler_slot = 3;
             desc.label = "nanovg_sg_shader";
         }
         return &desc;
@@ -3639,23 +3676,29 @@ static inline const sg_shader_desc* nanovg_sg_shader_desc(sg_backend backend) {
         static bool valid;
         if (!valid) {
             valid = true;
-            desc.vs.source = (const char*)nanovg_vs_source_metal_ios;
-            desc.vs.entry = "main0";
-            desc.vs.uniform_blocks[0].size = 16;
-            desc.vs.uniform_blocks[0].layout = SG_UNIFORMLAYOUT_STD140;
-            desc.fs.source = (const char*)nanovg_fs_source_metal_ios;
-            desc.fs.entry = "main0";
-            desc.fs.uniform_blocks[0].size = 176;
-            desc.fs.uniform_blocks[0].layout = SG_UNIFORMLAYOUT_STD140;
-            desc.fs.images[0].used = true;
-            desc.fs.images[0].multisampled = false;
-            desc.fs.images[0].image_type = SG_IMAGETYPE_2D;
-            desc.fs.images[0].sample_type = SG_IMAGESAMPLETYPE_FLOAT;
-            desc.fs.samplers[0].used = true;
-            desc.fs.samplers[0].sampler_type = SG_SAMPLERTYPE_FILTERING;
-            desc.fs.image_sampler_pairs[0].used = true;
-            desc.fs.image_sampler_pairs[0].image_slot = 0;
-            desc.fs.image_sampler_pairs[0].sampler_slot = 0;
+            desc.vertex_func.source = (const char*)nanovg_vs_source_metal_ios;
+            desc.vertex_func.entry = "main0";
+            desc.fragment_func.source = (const char*)nanovg_fs_source_metal_ios;
+            desc.fragment_func.entry = "main0";
+            desc.uniform_blocks[0].stage = SG_SHADERSTAGE_VERTEX;
+            desc.uniform_blocks[0].layout = SG_UNIFORMLAYOUT_STD140;
+            desc.uniform_blocks[0].size = 16;
+            desc.uniform_blocks[0].msl_buffer_n = 0;
+            desc.uniform_blocks[1].stage = SG_SHADERSTAGE_FRAGMENT;
+            desc.uniform_blocks[1].layout = SG_UNIFORMLAYOUT_STD140;
+            desc.uniform_blocks[1].size = 176;
+            desc.uniform_blocks[1].msl_buffer_n = 0;
+            desc.images[2].stage = SG_SHADERSTAGE_FRAGMENT;
+            desc.images[2].image_type = SG_IMAGETYPE_2D;
+            desc.images[2].sample_type = SG_IMAGESAMPLETYPE_FLOAT;
+            desc.images[2].multisampled = false;
+            desc.images[2].msl_texture_n = 0;
+            desc.samplers[3].stage = SG_SHADERSTAGE_FRAGMENT;
+            desc.samplers[3].sampler_type = SG_SAMPLERTYPE_FILTERING;
+            desc.samplers[3].msl_sampler_n = 0;
+            desc.image_sampler_pairs[0].stage = SG_SHADERSTAGE_FRAGMENT;
+            desc.image_sampler_pairs[0].image_slot = 2;
+            desc.image_sampler_pairs[0].sampler_slot = 3;
             desc.label = "nanovg_sg_shader";
         }
         return &desc;
@@ -3667,23 +3710,29 @@ static inline const sg_shader_desc* nanovg_sg_shader_desc(sg_backend backend) {
         static bool valid;
         if (!valid) {
             valid = true;
-            desc.vs.source = (const char*)nanovg_vs_source_metal_sim;
-            desc.vs.entry = "main0";
-            desc.vs.uniform_blocks[0].size = 16;
-            desc.vs.uniform_blocks[0].layout = SG_UNIFORMLAYOUT_STD140;
-            desc.fs.source = (const char*)nanovg_fs_source_metal_sim;
-            desc.fs.entry = "main0";
-            desc.fs.uniform_blocks[0].size = 176;
-            desc.fs.uniform_blocks[0].layout = SG_UNIFORMLAYOUT_STD140;
-            desc.fs.images[0].used = true;
-            desc.fs.images[0].multisampled = false;
-            desc.fs.images[0].image_type = SG_IMAGETYPE_2D;
-            desc.fs.images[0].sample_type = SG_IMAGESAMPLETYPE_FLOAT;
-            desc.fs.samplers[0].used = true;
-            desc.fs.samplers[0].sampler_type = SG_SAMPLERTYPE_FILTERING;
-            desc.fs.image_sampler_pairs[0].used = true;
-            desc.fs.image_sampler_pairs[0].image_slot = 0;
-            desc.fs.image_sampler_pairs[0].sampler_slot = 0;
+            desc.vertex_func.source = (const char*)nanovg_vs_source_metal_sim;
+            desc.vertex_func.entry = "main0";
+            desc.fragment_func.source = (const char*)nanovg_fs_source_metal_sim;
+            desc.fragment_func.entry = "main0";
+            desc.uniform_blocks[0].stage = SG_SHADERSTAGE_VERTEX;
+            desc.uniform_blocks[0].layout = SG_UNIFORMLAYOUT_STD140;
+            desc.uniform_blocks[0].size = 16;
+            desc.uniform_blocks[0].msl_buffer_n = 0;
+            desc.uniform_blocks[1].stage = SG_SHADERSTAGE_FRAGMENT;
+            desc.uniform_blocks[1].layout = SG_UNIFORMLAYOUT_STD140;
+            desc.uniform_blocks[1].size = 176;
+            desc.uniform_blocks[1].msl_buffer_n = 0;
+            desc.images[2].stage = SG_SHADERSTAGE_FRAGMENT;
+            desc.images[2].image_type = SG_IMAGETYPE_2D;
+            desc.images[2].sample_type = SG_IMAGESAMPLETYPE_FLOAT;
+            desc.images[2].multisampled = false;
+            desc.images[2].msl_texture_n = 0;
+            desc.samplers[3].stage = SG_SHADERSTAGE_FRAGMENT;
+            desc.samplers[3].sampler_type = SG_SAMPLERTYPE_FILTERING;
+            desc.samplers[3].msl_sampler_n = 0;
+            desc.image_sampler_pairs[0].stage = SG_SHADERSTAGE_FRAGMENT;
+            desc.image_sampler_pairs[0].image_slot = 2;
+            desc.image_sampler_pairs[0].sampler_slot = 3;
             desc.label = "nanovg_sg_shader";
         }
         return &desc;
@@ -3695,23 +3744,29 @@ static inline const sg_shader_desc* nanovg_sg_shader_desc(sg_backend backend) {
         static bool valid;
         if (!valid) {
             valid = true;
-            desc.vs.source = (const char*)nanovg_vs_source_wgsl;
-            desc.vs.entry = "main";
-            desc.vs.uniform_blocks[0].size = 16;
-            desc.vs.uniform_blocks[0].layout = SG_UNIFORMLAYOUT_STD140;
-            desc.fs.source = (const char*)nanovg_fs_source_wgsl;
-            desc.fs.entry = "main";
-            desc.fs.uniform_blocks[0].size = 176;
-            desc.fs.uniform_blocks[0].layout = SG_UNIFORMLAYOUT_STD140;
-            desc.fs.images[0].used = true;
-            desc.fs.images[0].multisampled = false;
-            desc.fs.images[0].image_type = SG_IMAGETYPE_2D;
-            desc.fs.images[0].sample_type = SG_IMAGESAMPLETYPE_FLOAT;
-            desc.fs.samplers[0].used = true;
-            desc.fs.samplers[0].sampler_type = SG_SAMPLERTYPE_FILTERING;
-            desc.fs.image_sampler_pairs[0].used = true;
-            desc.fs.image_sampler_pairs[0].image_slot = 0;
-            desc.fs.image_sampler_pairs[0].sampler_slot = 0;
+            desc.vertex_func.source = (const char*)nanovg_vs_source_wgsl;
+            desc.vertex_func.entry = "main";
+            desc.fragment_func.source = (const char*)nanovg_fs_source_wgsl;
+            desc.fragment_func.entry = "main";
+            desc.uniform_blocks[0].stage = SG_SHADERSTAGE_VERTEX;
+            desc.uniform_blocks[0].layout = SG_UNIFORMLAYOUT_STD140;
+            desc.uniform_blocks[0].size = 16;
+            desc.uniform_blocks[0].wgsl_group0_binding_n = 0;
+            desc.uniform_blocks[1].stage = SG_SHADERSTAGE_FRAGMENT;
+            desc.uniform_blocks[1].layout = SG_UNIFORMLAYOUT_STD140;
+            desc.uniform_blocks[1].size = 176;
+            desc.uniform_blocks[1].wgsl_group0_binding_n = 8;
+            desc.images[2].stage = SG_SHADERSTAGE_FRAGMENT;
+            desc.images[2].image_type = SG_IMAGETYPE_2D;
+            desc.images[2].sample_type = SG_IMAGESAMPLETYPE_FLOAT;
+            desc.images[2].multisampled = false;
+            desc.images[2].wgsl_group1_binding_n = 64;
+            desc.samplers[3].stage = SG_SHADERSTAGE_FRAGMENT;
+            desc.samplers[3].sampler_type = SG_SAMPLERTYPE_FILTERING;
+            desc.samplers[3].wgsl_group1_binding_n = 80;
+            desc.image_sampler_pairs[0].stage = SG_SHADERSTAGE_FRAGMENT;
+            desc.image_sampler_pairs[0].image_slot = 2;
+            desc.image_sampler_pairs[0].sampler_slot = 3;
             desc.label = "nanovg_sg_shader";
         }
         return &desc;
@@ -3719,11 +3774,11 @@ static inline const sg_shader_desc* nanovg_sg_shader_desc(sg_backend backend) {
     #endif /* SOKOL_WGPU */
     return 0;
 }
+// -- END --
 
-////////////////////////////////////////////////////////////////////////////////
+// -- START --
 // #include "shd.aa.glsl.h"
-////////////////////////////////////////////////////////////////////////////////
-
+#pragma once
 /*
     #version:1# (machine generated, don't edit!)
 
@@ -3736,28 +3791,26 @@ static inline const sg_shader_desc* nanovg_sg_shader_desc(sg_backend backend) {
     =========
     Shader program: 'sg':
         Get shader desc: nanovg_aa_sg_shader_desc(sg_query_backend());
-        Vertex shader: vs_aa
-            Attributes:
-                ATTR_nanovg_aa_vs_aa_vertex => 0
-                ATTR_nanovg_aa_vs_aa_tcoord => 1
-            Uniform block 'viewSize':
-                C struct: nanovg_aa_viewSize_t
-                Bind slot: SLOT_nanovg_aa_viewSize => 0
-        Fragment shader: fs_aa
-            Uniform block 'frag':
-                C struct: nanovg_aa_frag_t
-                Bind slot: SLOT_nanovg_aa_frag => 0
-            Image 'tex':
-                Image type: SG_IMAGETYPE_2D
-                Sample type: SG_IMAGESAMPLETYPE_FLOAT
-                Multisampled: false
-                Bind slot: SLOT_nanovg_aa_tex => 0
-            Sampler 'smp':
-                Type: SG_SAMPLERTYPE_FILTERING
-                Bind slot: SLOT_nanovg_aa_smp => 0
-            Image Sampler Pair 'tex_smp':
-                Image: tex
-                Sampler: smp
+        Vertex Shader: vs_aa
+        Fragment Shader: fs_aa
+        Attributes:
+            ATTR_nanovg_aa_sg_vertex => 0
+            ATTR_nanovg_aa_sg_tcoord => 1
+    Bindings:
+        Uniform block 'viewSize':
+            C struct: nanovg_aa_viewSize_t
+            Bind slot: UB_nanovg_aa_viewSize => 0
+        Uniform block 'frag':
+            C struct: nanovg_aa_frag_t
+            Bind slot: UB_nanovg_aa_frag => 1
+        Image 'tex':
+            Image type: SG_IMAGETYPE_2D
+            Sample type: SG_IMAGESAMPLETYPE_FLOAT
+            Multisampled: false
+            Bind slot: IMG_nanovg_aa_tex => 2
+        Sampler 'smp':
+            Type: SG_SAMPLERTYPE_FILTERING
+            Bind slot: SMP_nanovg_aa_smp => 3
 */
 #if !defined(SOKOL_GFX_INCLUDED)
 #error "Please include sokol_gfx.h before shd.aa.glsl.h"
@@ -3769,12 +3822,12 @@ static inline const sg_shader_desc* nanovg_sg_shader_desc(sg_backend backend) {
 #define SOKOL_SHDC_ALIGN(a) __attribute__((aligned(a)))
 #endif
 #endif
-#define ATTR_nanovg_aa_vs_aa_vertex (0)
-#define ATTR_nanovg_aa_vs_aa_tcoord (1)
-#define SLOT_nanovg_aa_viewSize (0)
-#define SLOT_nanovg_aa_frag (0)
-#define SLOT_nanovg_aa_tex (0)
-#define SLOT_nanovg_aa_smp (0)
+#define ATTR_nanovg_aa_sg_vertex (0)
+#define ATTR_nanovg_aa_sg_tcoord (1)
+#define UB_nanovg_aa_viewSize (0)
+#define UB_nanovg_aa_frag (1)
+#define IMG_nanovg_aa_tex (2)
+#define SMP_nanovg_aa_smp (3)
 #pragma pack(push,1)
 SOKOL_SHDC_ALIGN(16) typedef struct nanovg_aa_viewSize_t {
     float _viewSize[4];
@@ -6456,15 +6509,15 @@ static const uint8_t nanovg_aa_vs_aa_source_wgsl[1122] = {
       dummy : Arr,
     }
 
-    @group(0) @binding(4) var<uniform> x_59 : frag;
+    @group(0) @binding(8) var<uniform> x_59 : frag;
 
     var<private> ftcoord : vec2f;
 
     var<private> fpos : vec2f;
 
-    @group(1) @binding(48) var tex : texture_2d<f32>;
+    @group(1) @binding(64) var tex : texture_2d<f32>;
 
-    @group(1) @binding(64) var smp : sampler;
+    @group(1) @binding(80) var smp : sampler;
 
     var<private> outColor : vec4f;
 
@@ -6683,17 +6736,17 @@ static const uint8_t nanovg_aa_fs_aa_source_wgsl[7373] = {
     0x66,0x72,0x61,0x67,0x20,0x7b,0x0a,0x20,0x20,0x2f,0x2a,0x20,0x40,0x6f,0x66,0x66,
     0x73,0x65,0x74,0x28,0x30,0x29,0x20,0x2a,0x2f,0x0a,0x20,0x20,0x64,0x75,0x6d,0x6d,
     0x79,0x20,0x3a,0x20,0x41,0x72,0x72,0x2c,0x0a,0x7d,0x0a,0x0a,0x40,0x67,0x72,0x6f,
-    0x75,0x70,0x28,0x30,0x29,0x20,0x40,0x62,0x69,0x6e,0x64,0x69,0x6e,0x67,0x28,0x34,
+    0x75,0x70,0x28,0x30,0x29,0x20,0x40,0x62,0x69,0x6e,0x64,0x69,0x6e,0x67,0x28,0x38,
     0x29,0x20,0x76,0x61,0x72,0x3c,0x75,0x6e,0x69,0x66,0x6f,0x72,0x6d,0x3e,0x20,0x78,
     0x5f,0x35,0x39,0x20,0x3a,0x20,0x66,0x72,0x61,0x67,0x3b,0x0a,0x0a,0x76,0x61,0x72,
     0x3c,0x70,0x72,0x69,0x76,0x61,0x74,0x65,0x3e,0x20,0x66,0x74,0x63,0x6f,0x6f,0x72,
     0x64,0x20,0x3a,0x20,0x76,0x65,0x63,0x32,0x66,0x3b,0x0a,0x0a,0x76,0x61,0x72,0x3c,
     0x70,0x72,0x69,0x76,0x61,0x74,0x65,0x3e,0x20,0x66,0x70,0x6f,0x73,0x20,0x3a,0x20,
     0x76,0x65,0x63,0x32,0x66,0x3b,0x0a,0x0a,0x40,0x67,0x72,0x6f,0x75,0x70,0x28,0x31,
-    0x29,0x20,0x40,0x62,0x69,0x6e,0x64,0x69,0x6e,0x67,0x28,0x34,0x38,0x29,0x20,0x76,
+    0x29,0x20,0x40,0x62,0x69,0x6e,0x64,0x69,0x6e,0x67,0x28,0x36,0x34,0x29,0x20,0x76,
     0x61,0x72,0x20,0x74,0x65,0x78,0x20,0x3a,0x20,0x74,0x65,0x78,0x74,0x75,0x72,0x65,
     0x5f,0x32,0x64,0x3c,0x66,0x33,0x32,0x3e,0x3b,0x0a,0x0a,0x40,0x67,0x72,0x6f,0x75,
-    0x70,0x28,0x31,0x29,0x20,0x40,0x62,0x69,0x6e,0x64,0x69,0x6e,0x67,0x28,0x36,0x34,
+    0x70,0x28,0x31,0x29,0x20,0x40,0x62,0x69,0x6e,0x64,0x69,0x6e,0x67,0x28,0x38,0x30,
     0x29,0x20,0x76,0x61,0x72,0x20,0x73,0x6d,0x70,0x20,0x3a,0x20,0x73,0x61,0x6d,0x70,
     0x6c,0x65,0x72,0x3b,0x0a,0x0a,0x76,0x61,0x72,0x3c,0x70,0x72,0x69,0x76,0x61,0x74,
     0x65,0x3e,0x20,0x6f,0x75,0x74,0x43,0x6f,0x6c,0x6f,0x72,0x20,0x3a,0x20,0x76,0x65,
@@ -7145,32 +7198,34 @@ static inline const sg_shader_desc* nanovg_aa_sg_shader_desc(sg_backend backend)
         static bool valid;
         if (!valid) {
             valid = true;
-            desc.attrs[0].name = "vertex";
-            desc.attrs[1].name = "tcoord";
-            desc.vs.source = (const char*)nanovg_aa_vs_aa_source_glsl410;
-            desc.vs.entry = "main";
-            desc.vs.uniform_blocks[0].size = 16;
-            desc.vs.uniform_blocks[0].layout = SG_UNIFORMLAYOUT_STD140;
-            desc.vs.uniform_blocks[0].uniforms[0].name = "viewSize";
-            desc.vs.uniform_blocks[0].uniforms[0].type = SG_UNIFORMTYPE_FLOAT4;
-            desc.vs.uniform_blocks[0].uniforms[0].array_count = 1;
-            desc.fs.source = (const char*)nanovg_aa_fs_aa_source_glsl410;
-            desc.fs.entry = "main";
-            desc.fs.uniform_blocks[0].size = 176;
-            desc.fs.uniform_blocks[0].layout = SG_UNIFORMLAYOUT_STD140;
-            desc.fs.uniform_blocks[0].uniforms[0].name = "frag";
-            desc.fs.uniform_blocks[0].uniforms[0].type = SG_UNIFORMTYPE_FLOAT4;
-            desc.fs.uniform_blocks[0].uniforms[0].array_count = 11;
-            desc.fs.images[0].used = true;
-            desc.fs.images[0].multisampled = false;
-            desc.fs.images[0].image_type = SG_IMAGETYPE_2D;
-            desc.fs.images[0].sample_type = SG_IMAGESAMPLETYPE_FLOAT;
-            desc.fs.samplers[0].used = true;
-            desc.fs.samplers[0].sampler_type = SG_SAMPLERTYPE_FILTERING;
-            desc.fs.image_sampler_pairs[0].used = true;
-            desc.fs.image_sampler_pairs[0].image_slot = 0;
-            desc.fs.image_sampler_pairs[0].sampler_slot = 0;
-            desc.fs.image_sampler_pairs[0].glsl_name = "tex_smp";
+            desc.vertex_func.source = (const char*)nanovg_aa_vs_aa_source_glsl410;
+            desc.vertex_func.entry = "main";
+            desc.fragment_func.source = (const char*)nanovg_aa_fs_aa_source_glsl410;
+            desc.fragment_func.entry = "main";
+            desc.attrs[0].glsl_name = "vertex";
+            desc.attrs[1].glsl_name = "tcoord";
+            desc.uniform_blocks[0].stage = SG_SHADERSTAGE_VERTEX;
+            desc.uniform_blocks[0].layout = SG_UNIFORMLAYOUT_STD140;
+            desc.uniform_blocks[0].size = 16;
+            desc.uniform_blocks[0].glsl_uniforms[0].type = SG_UNIFORMTYPE_FLOAT4;
+            desc.uniform_blocks[0].glsl_uniforms[0].array_count = 1;
+            desc.uniform_blocks[0].glsl_uniforms[0].glsl_name = "viewSize";
+            desc.uniform_blocks[1].stage = SG_SHADERSTAGE_FRAGMENT;
+            desc.uniform_blocks[1].layout = SG_UNIFORMLAYOUT_STD140;
+            desc.uniform_blocks[1].size = 176;
+            desc.uniform_blocks[1].glsl_uniforms[0].type = SG_UNIFORMTYPE_FLOAT4;
+            desc.uniform_blocks[1].glsl_uniforms[0].array_count = 11;
+            desc.uniform_blocks[1].glsl_uniforms[0].glsl_name = "frag";
+            desc.images[2].stage = SG_SHADERSTAGE_FRAGMENT;
+            desc.images[2].image_type = SG_IMAGETYPE_2D;
+            desc.images[2].sample_type = SG_IMAGESAMPLETYPE_FLOAT;
+            desc.images[2].multisampled = false;
+            desc.samplers[3].stage = SG_SHADERSTAGE_FRAGMENT;
+            desc.samplers[3].sampler_type = SG_SAMPLERTYPE_FILTERING;
+            desc.image_sampler_pairs[0].stage = SG_SHADERSTAGE_FRAGMENT;
+            desc.image_sampler_pairs[0].image_slot = 2;
+            desc.image_sampler_pairs[0].sampler_slot = 3;
+            desc.image_sampler_pairs[0].glsl_name = "tex_smp";
             desc.label = "nanovg_aa_sg_shader";
         }
         return &desc;
@@ -7182,32 +7237,34 @@ static inline const sg_shader_desc* nanovg_aa_sg_shader_desc(sg_backend backend)
         static bool valid;
         if (!valid) {
             valid = true;
-            desc.attrs[0].name = "vertex";
-            desc.attrs[1].name = "tcoord";
-            desc.vs.source = (const char*)nanovg_aa_vs_aa_source_glsl300es;
-            desc.vs.entry = "main";
-            desc.vs.uniform_blocks[0].size = 16;
-            desc.vs.uniform_blocks[0].layout = SG_UNIFORMLAYOUT_STD140;
-            desc.vs.uniform_blocks[0].uniforms[0].name = "viewSize";
-            desc.vs.uniform_blocks[0].uniforms[0].type = SG_UNIFORMTYPE_FLOAT4;
-            desc.vs.uniform_blocks[0].uniforms[0].array_count = 1;
-            desc.fs.source = (const char*)nanovg_aa_fs_aa_source_glsl300es;
-            desc.fs.entry = "main";
-            desc.fs.uniform_blocks[0].size = 176;
-            desc.fs.uniform_blocks[0].layout = SG_UNIFORMLAYOUT_STD140;
-            desc.fs.uniform_blocks[0].uniforms[0].name = "frag";
-            desc.fs.uniform_blocks[0].uniforms[0].type = SG_UNIFORMTYPE_FLOAT4;
-            desc.fs.uniform_blocks[0].uniforms[0].array_count = 11;
-            desc.fs.images[0].used = true;
-            desc.fs.images[0].multisampled = false;
-            desc.fs.images[0].image_type = SG_IMAGETYPE_2D;
-            desc.fs.images[0].sample_type = SG_IMAGESAMPLETYPE_FLOAT;
-            desc.fs.samplers[0].used = true;
-            desc.fs.samplers[0].sampler_type = SG_SAMPLERTYPE_FILTERING;
-            desc.fs.image_sampler_pairs[0].used = true;
-            desc.fs.image_sampler_pairs[0].image_slot = 0;
-            desc.fs.image_sampler_pairs[0].sampler_slot = 0;
-            desc.fs.image_sampler_pairs[0].glsl_name = "tex_smp";
+            desc.vertex_func.source = (const char*)nanovg_aa_vs_aa_source_glsl300es;
+            desc.vertex_func.entry = "main";
+            desc.fragment_func.source = (const char*)nanovg_aa_fs_aa_source_glsl300es;
+            desc.fragment_func.entry = "main";
+            desc.attrs[0].glsl_name = "vertex";
+            desc.attrs[1].glsl_name = "tcoord";
+            desc.uniform_blocks[0].stage = SG_SHADERSTAGE_VERTEX;
+            desc.uniform_blocks[0].layout = SG_UNIFORMLAYOUT_STD140;
+            desc.uniform_blocks[0].size = 16;
+            desc.uniform_blocks[0].glsl_uniforms[0].type = SG_UNIFORMTYPE_FLOAT4;
+            desc.uniform_blocks[0].glsl_uniforms[0].array_count = 1;
+            desc.uniform_blocks[0].glsl_uniforms[0].glsl_name = "viewSize";
+            desc.uniform_blocks[1].stage = SG_SHADERSTAGE_FRAGMENT;
+            desc.uniform_blocks[1].layout = SG_UNIFORMLAYOUT_STD140;
+            desc.uniform_blocks[1].size = 176;
+            desc.uniform_blocks[1].glsl_uniforms[0].type = SG_UNIFORMTYPE_FLOAT4;
+            desc.uniform_blocks[1].glsl_uniforms[0].array_count = 11;
+            desc.uniform_blocks[1].glsl_uniforms[0].glsl_name = "frag";
+            desc.images[2].stage = SG_SHADERSTAGE_FRAGMENT;
+            desc.images[2].image_type = SG_IMAGETYPE_2D;
+            desc.images[2].sample_type = SG_IMAGESAMPLETYPE_FLOAT;
+            desc.images[2].multisampled = false;
+            desc.samplers[3].stage = SG_SHADERSTAGE_FRAGMENT;
+            desc.samplers[3].sampler_type = SG_SAMPLERTYPE_FILTERING;
+            desc.image_sampler_pairs[0].stage = SG_SHADERSTAGE_FRAGMENT;
+            desc.image_sampler_pairs[0].image_slot = 2;
+            desc.image_sampler_pairs[0].sampler_slot = 3;
+            desc.image_sampler_pairs[0].glsl_name = "tex_smp";
             desc.label = "nanovg_aa_sg_shader";
         }
         return &desc;
@@ -7219,29 +7276,35 @@ static inline const sg_shader_desc* nanovg_aa_sg_shader_desc(sg_backend backend)
         static bool valid;
         if (!valid) {
             valid = true;
-            desc.attrs[0].sem_name = "TEXCOORD";
-            desc.attrs[0].sem_index = 0;
-            desc.attrs[1].sem_name = "TEXCOORD";
-            desc.attrs[1].sem_index = 1;
-            desc.vs.source = (const char*)nanovg_aa_vs_aa_source_hlsl4;
-            desc.vs.d3d11_target = "vs_4_0";
-            desc.vs.entry = "main";
-            desc.vs.uniform_blocks[0].size = 16;
-            desc.vs.uniform_blocks[0].layout = SG_UNIFORMLAYOUT_STD140;
-            desc.fs.source = (const char*)nanovg_aa_fs_aa_source_hlsl4;
-            desc.fs.d3d11_target = "ps_4_0";
-            desc.fs.entry = "main";
-            desc.fs.uniform_blocks[0].size = 176;
-            desc.fs.uniform_blocks[0].layout = SG_UNIFORMLAYOUT_STD140;
-            desc.fs.images[0].used = true;
-            desc.fs.images[0].multisampled = false;
-            desc.fs.images[0].image_type = SG_IMAGETYPE_2D;
-            desc.fs.images[0].sample_type = SG_IMAGESAMPLETYPE_FLOAT;
-            desc.fs.samplers[0].used = true;
-            desc.fs.samplers[0].sampler_type = SG_SAMPLERTYPE_FILTERING;
-            desc.fs.image_sampler_pairs[0].used = true;
-            desc.fs.image_sampler_pairs[0].image_slot = 0;
-            desc.fs.image_sampler_pairs[0].sampler_slot = 0;
+            desc.vertex_func.source = (const char*)nanovg_aa_vs_aa_source_hlsl4;
+            desc.vertex_func.d3d11_target = "vs_4_0";
+            desc.vertex_func.entry = "main";
+            desc.fragment_func.source = (const char*)nanovg_aa_fs_aa_source_hlsl4;
+            desc.fragment_func.d3d11_target = "ps_4_0";
+            desc.fragment_func.entry = "main";
+            desc.attrs[0].hlsl_sem_name = "TEXCOORD";
+            desc.attrs[0].hlsl_sem_index = 0;
+            desc.attrs[1].hlsl_sem_name = "TEXCOORD";
+            desc.attrs[1].hlsl_sem_index = 1;
+            desc.uniform_blocks[0].stage = SG_SHADERSTAGE_VERTEX;
+            desc.uniform_blocks[0].layout = SG_UNIFORMLAYOUT_STD140;
+            desc.uniform_blocks[0].size = 16;
+            desc.uniform_blocks[0].hlsl_register_b_n = 0;
+            desc.uniform_blocks[1].stage = SG_SHADERSTAGE_FRAGMENT;
+            desc.uniform_blocks[1].layout = SG_UNIFORMLAYOUT_STD140;
+            desc.uniform_blocks[1].size = 176;
+            desc.uniform_blocks[1].hlsl_register_b_n = 0;
+            desc.images[2].stage = SG_SHADERSTAGE_FRAGMENT;
+            desc.images[2].image_type = SG_IMAGETYPE_2D;
+            desc.images[2].sample_type = SG_IMAGESAMPLETYPE_FLOAT;
+            desc.images[2].multisampled = false;
+            desc.images[2].hlsl_register_t_n = 0;
+            desc.samplers[3].stage = SG_SHADERSTAGE_FRAGMENT;
+            desc.samplers[3].sampler_type = SG_SAMPLERTYPE_FILTERING;
+            desc.samplers[3].hlsl_register_s_n = 0;
+            desc.image_sampler_pairs[0].stage = SG_SHADERSTAGE_FRAGMENT;
+            desc.image_sampler_pairs[0].image_slot = 2;
+            desc.image_sampler_pairs[0].sampler_slot = 3;
             desc.label = "nanovg_aa_sg_shader";
         }
         return &desc;
@@ -7253,23 +7316,29 @@ static inline const sg_shader_desc* nanovg_aa_sg_shader_desc(sg_backend backend)
         static bool valid;
         if (!valid) {
             valid = true;
-            desc.vs.source = (const char*)nanovg_aa_vs_aa_source_metal_macos;
-            desc.vs.entry = "main0";
-            desc.vs.uniform_blocks[0].size = 16;
-            desc.vs.uniform_blocks[0].layout = SG_UNIFORMLAYOUT_STD140;
-            desc.fs.source = (const char*)nanovg_aa_fs_aa_source_metal_macos;
-            desc.fs.entry = "main0";
-            desc.fs.uniform_blocks[0].size = 176;
-            desc.fs.uniform_blocks[0].layout = SG_UNIFORMLAYOUT_STD140;
-            desc.fs.images[0].used = true;
-            desc.fs.images[0].multisampled = false;
-            desc.fs.images[0].image_type = SG_IMAGETYPE_2D;
-            desc.fs.images[0].sample_type = SG_IMAGESAMPLETYPE_FLOAT;
-            desc.fs.samplers[0].used = true;
-            desc.fs.samplers[0].sampler_type = SG_SAMPLERTYPE_FILTERING;
-            desc.fs.image_sampler_pairs[0].used = true;
-            desc.fs.image_sampler_pairs[0].image_slot = 0;
-            desc.fs.image_sampler_pairs[0].sampler_slot = 0;
+            desc.vertex_func.source = (const char*)nanovg_aa_vs_aa_source_metal_macos;
+            desc.vertex_func.entry = "main0";
+            desc.fragment_func.source = (const char*)nanovg_aa_fs_aa_source_metal_macos;
+            desc.fragment_func.entry = "main0";
+            desc.uniform_blocks[0].stage = SG_SHADERSTAGE_VERTEX;
+            desc.uniform_blocks[0].layout = SG_UNIFORMLAYOUT_STD140;
+            desc.uniform_blocks[0].size = 16;
+            desc.uniform_blocks[0].msl_buffer_n = 0;
+            desc.uniform_blocks[1].stage = SG_SHADERSTAGE_FRAGMENT;
+            desc.uniform_blocks[1].layout = SG_UNIFORMLAYOUT_STD140;
+            desc.uniform_blocks[1].size = 176;
+            desc.uniform_blocks[1].msl_buffer_n = 0;
+            desc.images[2].stage = SG_SHADERSTAGE_FRAGMENT;
+            desc.images[2].image_type = SG_IMAGETYPE_2D;
+            desc.images[2].sample_type = SG_IMAGESAMPLETYPE_FLOAT;
+            desc.images[2].multisampled = false;
+            desc.images[2].msl_texture_n = 0;
+            desc.samplers[3].stage = SG_SHADERSTAGE_FRAGMENT;
+            desc.samplers[3].sampler_type = SG_SAMPLERTYPE_FILTERING;
+            desc.samplers[3].msl_sampler_n = 0;
+            desc.image_sampler_pairs[0].stage = SG_SHADERSTAGE_FRAGMENT;
+            desc.image_sampler_pairs[0].image_slot = 2;
+            desc.image_sampler_pairs[0].sampler_slot = 3;
             desc.label = "nanovg_aa_sg_shader";
         }
         return &desc;
@@ -7281,23 +7350,29 @@ static inline const sg_shader_desc* nanovg_aa_sg_shader_desc(sg_backend backend)
         static bool valid;
         if (!valid) {
             valid = true;
-            desc.vs.source = (const char*)nanovg_aa_vs_aa_source_metal_ios;
-            desc.vs.entry = "main0";
-            desc.vs.uniform_blocks[0].size = 16;
-            desc.vs.uniform_blocks[0].layout = SG_UNIFORMLAYOUT_STD140;
-            desc.fs.source = (const char*)nanovg_aa_fs_aa_source_metal_ios;
-            desc.fs.entry = "main0";
-            desc.fs.uniform_blocks[0].size = 176;
-            desc.fs.uniform_blocks[0].layout = SG_UNIFORMLAYOUT_STD140;
-            desc.fs.images[0].used = true;
-            desc.fs.images[0].multisampled = false;
-            desc.fs.images[0].image_type = SG_IMAGETYPE_2D;
-            desc.fs.images[0].sample_type = SG_IMAGESAMPLETYPE_FLOAT;
-            desc.fs.samplers[0].used = true;
-            desc.fs.samplers[0].sampler_type = SG_SAMPLERTYPE_FILTERING;
-            desc.fs.image_sampler_pairs[0].used = true;
-            desc.fs.image_sampler_pairs[0].image_slot = 0;
-            desc.fs.image_sampler_pairs[0].sampler_slot = 0;
+            desc.vertex_func.source = (const char*)nanovg_aa_vs_aa_source_metal_ios;
+            desc.vertex_func.entry = "main0";
+            desc.fragment_func.source = (const char*)nanovg_aa_fs_aa_source_metal_ios;
+            desc.fragment_func.entry = "main0";
+            desc.uniform_blocks[0].stage = SG_SHADERSTAGE_VERTEX;
+            desc.uniform_blocks[0].layout = SG_UNIFORMLAYOUT_STD140;
+            desc.uniform_blocks[0].size = 16;
+            desc.uniform_blocks[0].msl_buffer_n = 0;
+            desc.uniform_blocks[1].stage = SG_SHADERSTAGE_FRAGMENT;
+            desc.uniform_blocks[1].layout = SG_UNIFORMLAYOUT_STD140;
+            desc.uniform_blocks[1].size = 176;
+            desc.uniform_blocks[1].msl_buffer_n = 0;
+            desc.images[2].stage = SG_SHADERSTAGE_FRAGMENT;
+            desc.images[2].image_type = SG_IMAGETYPE_2D;
+            desc.images[2].sample_type = SG_IMAGESAMPLETYPE_FLOAT;
+            desc.images[2].multisampled = false;
+            desc.images[2].msl_texture_n = 0;
+            desc.samplers[3].stage = SG_SHADERSTAGE_FRAGMENT;
+            desc.samplers[3].sampler_type = SG_SAMPLERTYPE_FILTERING;
+            desc.samplers[3].msl_sampler_n = 0;
+            desc.image_sampler_pairs[0].stage = SG_SHADERSTAGE_FRAGMENT;
+            desc.image_sampler_pairs[0].image_slot = 2;
+            desc.image_sampler_pairs[0].sampler_slot = 3;
             desc.label = "nanovg_aa_sg_shader";
         }
         return &desc;
@@ -7309,23 +7384,29 @@ static inline const sg_shader_desc* nanovg_aa_sg_shader_desc(sg_backend backend)
         static bool valid;
         if (!valid) {
             valid = true;
-            desc.vs.source = (const char*)nanovg_aa_vs_aa_source_metal_sim;
-            desc.vs.entry = "main0";
-            desc.vs.uniform_blocks[0].size = 16;
-            desc.vs.uniform_blocks[0].layout = SG_UNIFORMLAYOUT_STD140;
-            desc.fs.source = (const char*)nanovg_aa_fs_aa_source_metal_sim;
-            desc.fs.entry = "main0";
-            desc.fs.uniform_blocks[0].size = 176;
-            desc.fs.uniform_blocks[0].layout = SG_UNIFORMLAYOUT_STD140;
-            desc.fs.images[0].used = true;
-            desc.fs.images[0].multisampled = false;
-            desc.fs.images[0].image_type = SG_IMAGETYPE_2D;
-            desc.fs.images[0].sample_type = SG_IMAGESAMPLETYPE_FLOAT;
-            desc.fs.samplers[0].used = true;
-            desc.fs.samplers[0].sampler_type = SG_SAMPLERTYPE_FILTERING;
-            desc.fs.image_sampler_pairs[0].used = true;
-            desc.fs.image_sampler_pairs[0].image_slot = 0;
-            desc.fs.image_sampler_pairs[0].sampler_slot = 0;
+            desc.vertex_func.source = (const char*)nanovg_aa_vs_aa_source_metal_sim;
+            desc.vertex_func.entry = "main0";
+            desc.fragment_func.source = (const char*)nanovg_aa_fs_aa_source_metal_sim;
+            desc.fragment_func.entry = "main0";
+            desc.uniform_blocks[0].stage = SG_SHADERSTAGE_VERTEX;
+            desc.uniform_blocks[0].layout = SG_UNIFORMLAYOUT_STD140;
+            desc.uniform_blocks[0].size = 16;
+            desc.uniform_blocks[0].msl_buffer_n = 0;
+            desc.uniform_blocks[1].stage = SG_SHADERSTAGE_FRAGMENT;
+            desc.uniform_blocks[1].layout = SG_UNIFORMLAYOUT_STD140;
+            desc.uniform_blocks[1].size = 176;
+            desc.uniform_blocks[1].msl_buffer_n = 0;
+            desc.images[2].stage = SG_SHADERSTAGE_FRAGMENT;
+            desc.images[2].image_type = SG_IMAGETYPE_2D;
+            desc.images[2].sample_type = SG_IMAGESAMPLETYPE_FLOAT;
+            desc.images[2].multisampled = false;
+            desc.images[2].msl_texture_n = 0;
+            desc.samplers[3].stage = SG_SHADERSTAGE_FRAGMENT;
+            desc.samplers[3].sampler_type = SG_SAMPLERTYPE_FILTERING;
+            desc.samplers[3].msl_sampler_n = 0;
+            desc.image_sampler_pairs[0].stage = SG_SHADERSTAGE_FRAGMENT;
+            desc.image_sampler_pairs[0].image_slot = 2;
+            desc.image_sampler_pairs[0].sampler_slot = 3;
             desc.label = "nanovg_aa_sg_shader";
         }
         return &desc;
@@ -7337,23 +7418,29 @@ static inline const sg_shader_desc* nanovg_aa_sg_shader_desc(sg_backend backend)
         static bool valid;
         if (!valid) {
             valid = true;
-            desc.vs.source = (const char*)nanovg_aa_vs_aa_source_wgsl;
-            desc.vs.entry = "main";
-            desc.vs.uniform_blocks[0].size = 16;
-            desc.vs.uniform_blocks[0].layout = SG_UNIFORMLAYOUT_STD140;
-            desc.fs.source = (const char*)nanovg_aa_fs_aa_source_wgsl;
-            desc.fs.entry = "main";
-            desc.fs.uniform_blocks[0].size = 176;
-            desc.fs.uniform_blocks[0].layout = SG_UNIFORMLAYOUT_STD140;
-            desc.fs.images[0].used = true;
-            desc.fs.images[0].multisampled = false;
-            desc.fs.images[0].image_type = SG_IMAGETYPE_2D;
-            desc.fs.images[0].sample_type = SG_IMAGESAMPLETYPE_FLOAT;
-            desc.fs.samplers[0].used = true;
-            desc.fs.samplers[0].sampler_type = SG_SAMPLERTYPE_FILTERING;
-            desc.fs.image_sampler_pairs[0].used = true;
-            desc.fs.image_sampler_pairs[0].image_slot = 0;
-            desc.fs.image_sampler_pairs[0].sampler_slot = 0;
+            desc.vertex_func.source = (const char*)nanovg_aa_vs_aa_source_wgsl;
+            desc.vertex_func.entry = "main";
+            desc.fragment_func.source = (const char*)nanovg_aa_fs_aa_source_wgsl;
+            desc.fragment_func.entry = "main";
+            desc.uniform_blocks[0].stage = SG_SHADERSTAGE_VERTEX;
+            desc.uniform_blocks[0].layout = SG_UNIFORMLAYOUT_STD140;
+            desc.uniform_blocks[0].size = 16;
+            desc.uniform_blocks[0].wgsl_group0_binding_n = 0;
+            desc.uniform_blocks[1].stage = SG_SHADERSTAGE_FRAGMENT;
+            desc.uniform_blocks[1].layout = SG_UNIFORMLAYOUT_STD140;
+            desc.uniform_blocks[1].size = 176;
+            desc.uniform_blocks[1].wgsl_group0_binding_n = 8;
+            desc.images[2].stage = SG_SHADERSTAGE_FRAGMENT;
+            desc.images[2].image_type = SG_IMAGETYPE_2D;
+            desc.images[2].sample_type = SG_IMAGESAMPLETYPE_FLOAT;
+            desc.images[2].multisampled = false;
+            desc.images[2].wgsl_group1_binding_n = 64;
+            desc.samplers[3].stage = SG_SHADERSTAGE_FRAGMENT;
+            desc.samplers[3].sampler_type = SG_SAMPLERTYPE_FILTERING;
+            desc.samplers[3].wgsl_group1_binding_n = 80;
+            desc.image_sampler_pairs[0].stage = SG_SHADERSTAGE_FRAGMENT;
+            desc.image_sampler_pairs[0].image_slot = 2;
+            desc.image_sampler_pairs[0].sampler_slot = 3;
             desc.label = "nanovg_aa_sg_shader";
         }
         return &desc;
@@ -7361,8 +7448,7 @@ static inline const sg_shader_desc* nanovg_aa_sg_shader_desc(sg_backend backend)
     #endif /* SOKOL_WGPU */
     return 0;
 }
-
-////////////////////////////////////////////////////////////////////////////////
+// -- END --
 
 enum SGNVGshaderType {
     NSVG_SHADER_FILLGRAD,
@@ -7642,8 +7728,8 @@ static void sgnvg__initPipeline(SGNVGcontext* sg, sg_pipeline pip, const sg_sten
         .layout = {
             // .buffers[0] = {.stride = sizeof(SGNVGattribute)},
             .attrs = {
-                [ATTR_nanovg_vs_vertex].format = SG_VERTEXFORMAT_FLOAT2,
-                [ATTR_nanovg_vs_tcoord].format = SG_VERTEXFORMAT_FLOAT2,
+                [ATTR_nanovg_sg_vertex].format = SG_VERTEXFORMAT_FLOAT2,
+                [ATTR_nanovg_sg_tcoord].format = SG_VERTEXFORMAT_FLOAT2,
             },
         },
         .stencil = *stencil,
@@ -7817,8 +7903,8 @@ static void sgnvg__setUniforms(SGNVGcontext* sg, int uniformOffset, int image)
     SGNVG_INTLOG("sgnvg__setUniforms(sg: %p, uniformOffset: %d, image: %d)\n", sg, uniformOffset, image);
     SGNVGtexture* tex = NULL;
     SGNVGfragUniforms* frag = nvg__fragUniformPtr(sg, uniformOffset);
-    sg_apply_uniforms(SG_SHADERSTAGE_VS, SLOT_nanovg_viewSize, &(sg_range){ &sg->view, sizeof(sg->view) });
-    sg_apply_uniforms(SG_SHADERSTAGE_FS, SLOT_nanovg_frag, &(sg_range){ frag, sizeof(*frag) });
+    sg_apply_uniforms(UB_nanovg_viewSize, &(sg_range){ &sg->view, sizeof(sg->view) });
+    sg_apply_uniforms(UB_nanovg_frag, &(sg_range){ frag, sizeof(*frag) });
 
     if (image != 0) {
         tex = sgnvg__findTexture(sg, image);
@@ -7830,8 +7916,8 @@ static void sgnvg__setUniforms(SGNVGcontext* sg, int uniformOffset, int image)
     sg_apply_bindings(&(sg_bindings){
         .vertex_buffers[0] = sg->vertBuf,
         .index_buffer = sg->indexBuf,
-        .fs.images[SLOT_nanovg_tex] = tex ? tex->img : (sg_image){0},
-        .fs.samplers[SLOT_nanovg_smp] = tex ? tex->smp : (sg_sampler){0},
+        .images[IMG_nanovg_tex] = tex ? tex->img : (sg_image){0},
+        .samplers[SMP_nanovg_smp] = tex ? tex->smp : (sg_sampler){0},
     });
 }
 
