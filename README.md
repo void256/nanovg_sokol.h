@@ -60,6 +60,7 @@ You'll need [ninja-build](https://ninja-build.org/) and then simply call:
 
 ```bash
 ninja build/main
+# or ninja -f build-linux.ninja build/main
 cd build
 ./main
 ```
