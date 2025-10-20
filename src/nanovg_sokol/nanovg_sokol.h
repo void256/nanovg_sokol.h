@@ -213,7 +213,7 @@ void main(void) {
     float scissor = scissorMask(fpos);
 
     if (scissor == 0) {
-        return;
+        discard;
     }
 
     if (type == 0) {    // Gradient
