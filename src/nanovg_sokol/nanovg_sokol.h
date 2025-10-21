@@ -7206,6 +7206,7 @@ static int sgnvg__deleteTexture(SGNVGcontext* sg, int id)
     for (i = 0; i < sg->ntextures; i++) {
         if (sg->textures[i].id == id) {
             if (sg->textures[i].img.id != 0 && (sg->textures[i].flags & NVG_IMAGE_NODELETE) == 0)
+                sg_destroy_view(sg->textures[i].img_view);
                 sg_destroy_image(sg->textures[i].img);
             free(sg->textures[i].imgData);
             memset(&sg->textures[i], 0, sizeof(sg->textures[i]));
@@ -8302,6 +8303,7 @@ static void sgnvg__renderDelete(void* uptr)
 
     for (i = 0; i < sg->ntextures; i++) {
         if (sg->textures[i].img.id != 0 && (sg->textures[i].flags & NVG_IMAGE_NODELETE) == 0)
+            sg_destroy_view(sg->textures[i].img_view);
             sg_destroy_image(sg->textures[i].img);
     }
     free(sg->textures);
