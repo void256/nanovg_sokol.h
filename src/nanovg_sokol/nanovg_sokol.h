@@ -7149,7 +7149,10 @@ static unsigned int sgnvg__nearestPow2(unsigned int num)
 #ifdef SGNVG_DEBUG_LOG
 #define SGNVG_EXTLOG(...)   printf("- " __VA_ARGS__);
 #define SGNVG_INTLOG(...)   printf("  - " __VA_ARGS__);
-#define SG_DRAW(b, n, i) printf("  -> sg_draw(base_element: %d, num_elements: %d, num_instances: %d)\n", b, n, i); sg_draw(b, n, i);
+#define SG_DRAW(b, n, i) do { \
+    printf("  -> sg_draw(base_element: %d, num_elements: %d, num_instances: %d)\n", b, n, i); \
+    sg_draw(b, n, i); \
+  } while (0)
 #else
 #define SGNVG_EXTLOG(...)
 #define SGNVG_INTLOG(...)
